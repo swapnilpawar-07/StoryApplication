@@ -7,6 +7,7 @@
     body { font-family: Arial, sans-serif; background: #f4f6f8; padding: 30px; text-align: center; }
     .card { background: white; max-width: 500px; margin: auto; padding: 30px; border-radius: 10px; box-shadow: 0 0 10px #ccc; }
     input, button { padding: 10px; margin-top: 10px; width: 90%; }
+    .error { color: red; margin-top: 10px; }
   </style>
 </head>
 <body>
@@ -16,6 +17,9 @@
       <input type="text" name="user_query" placeholder="e.g. Friends turned YouTube into a business" required><br>
       <button type="submit">Find Story</button>
     </form>
+    {% if error %}
+      <div class="error">{{ error }}</div>
+    {% endif %}
   </div>
 </body>
 </html>
