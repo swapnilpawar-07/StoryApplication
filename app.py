@@ -1,15 +1,21 @@
-from flask import Flask, render_template, request, redirect, send_from_directory
+from flask import Flask, render_template, request, redirect, url_for, session, send_from_directory
 from utils import load_all_stories, extract_text_from_docx
 from query_engine import embed_stories, find_best_story, refine_query
 import os
+import re
 
 app = Flask(__name__)
+app.secret_key = 'ttu-admin-secret'
 app.config['UPLOAD_FOLDER'] = 'stories'
 ALLOWED_EXTENSIONS = {'docx'}
+
+ADMIN_USERNAME = 'ttuadmin'
+ADMIN_PASSWORD = 'ttu2025'
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+# Load and embed stories on startup
 story_db = load_all_stories()
 story_db, story_matrix, vectorizer = embed_stories(story_db)
 
@@ -20,52 +26,20 @@ def index():
 @app.route('/query', methods=['GET', 'POST'])
 def query():
     if request.method == 'POST':
-        user_query = request.form['user_query']
-        refined_query = refine_query(user_query)
-        best_story, score = find_best_story(refined_query, story_db, story_matrix, vectorizer)
-        return render_template('result.html', story=best_story, score=round(score, 2), query=user_query)
+        query_text = request.form['query']
+        return redirect(url_for('result', index=0, query=query_text))
     return render_template('query.html')
 
-@app.route('/upload', methods=['GET', 'POST'])
-def upload():
-    global story_db, story_matrix, vectorizer
-    if request.method == 'POST':
-        file = request.files.get('file')
-        if file and allowed_file(file.filename):
-            path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
-            file.save(path)
-            story_db = load_all_stories()
-            story_db, story_matrix, vectorizer = embed_stories(story_db)
-            return redirect('/')
-    return render_template('upload.html')
-
-@app.route('/admin')
-def admin():
-    files = os.listdir(app.config['UPLOAD_FOLDER'])
-    return render_template('admin.html', stories=files)
-
-@app.route('/delete/<filename>')
-def delete_story(filename):
-    path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    if os.path.exists(path):
-        os.remove(path)
-    return redirect('/admin')
-
-
 def highlight_terms(paragraphs, query):
-    import re
     pattern = re.compile(re.escape(query), re.IGNORECASE)
     return [pattern.sub(lambda m: f"<mark>{m.group(0)}</mark>", para) for para in paragraphs]
-
-
 
 @app.route('/result/<int:index>', methods=['GET'])
 def result(index):
     query = request.args.get('query', '')
     matched = []
     for story in story_db:
-        paragraphs = story['text']
-        for para in paragraphs:
+        for para in story['text']:
             if query.lower() in para.lower():
                 matched.append(story)
                 break
@@ -75,7 +49,6 @@ def result(index):
 
     selected_story = matched[index]
     highlighted_paragraphs = highlight_terms(selected_story['text'], query)
-
     prev_index = index - 1 if index > 0 else None
     next_index = index + 1 if index < len(matched) - 1 else None
 
@@ -89,24 +62,7 @@ def result(index):
         total_results=len(matched)
     )
 
-@app.route('/query', methods=['POST'])
-def query():
-    query_text = request.form['query']
-    return redirect(url_for('result', index=0, query=query_text))
-
-
-if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
-
-
-
-from flask import session
-
-app.secret_key = 'ttu-admin-secret'
-
-ADMIN_USERNAME = 'ttuadmin'
-ADMIN_PASSWORD = 'ttu2025'
-
+# Admin login page
 @app.route('/admin', methods=['GET', 'POST'])
 def admin():
     if request.method == 'POST':
@@ -130,7 +86,6 @@ def admin():
 def admin_upload():
     if not session.get('admin'):
         return redirect(url_for('admin'))
-
     file = request.files['file']
     if file and allowed_file(file.filename):
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
@@ -145,7 +100,6 @@ def admin_upload():
 def admin_delete():
     if not session.get('admin'):
         return redirect(url_for('admin'))
-
     filename = request.form['filename']
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
     if os.path.exists(filepath):
@@ -155,3 +109,11 @@ def admin_delete():
         story_db, story_matrix, vectorizer = embed_stories(story_db)
         return "Story deleted successfully."
     return "File not found", 404
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('index'))
+
+if __name__ == '__main__':
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
