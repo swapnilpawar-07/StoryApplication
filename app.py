@@ -26,7 +26,7 @@ def index():
 @app.route('/query', methods=['GET', 'POST'])
 def query():
     if request.method == 'POST':
-        query_text = request.form['query']
+        query_text = request.form.get('user_query') 
         return redirect(url_for('result', index=0, query=query_text))
     return render_template('query.html')
 
