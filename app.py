@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, send_from_directory
+from flask import Flask, render_template, request, redirect, url_for, session
 from utils import load_all_stories, extract_text_from_docx
 from query_engine import embed_stories, find_best_story, refine_query
 import os
@@ -15,7 +15,7 @@ ADMIN_PASSWORD = 'ttu2025'
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-# Load and embed stories on startup
+# Load stories on startup
 story_db = load_all_stories()
 story_db, story_matrix, vectorizer = embed_stories(story_db)
 
@@ -32,7 +32,6 @@ def query():
         return redirect(url_for('result', index=0, query=query_text))
     return render_template('query.html')
 
-
 def highlight_terms(paragraphs, query):
     pattern = re.compile(re.escape(query), re.IGNORECASE)
     return [pattern.sub(lambda m: f"<mark>{m.group(0)}</mark>", para) for para in paragraphs]
@@ -41,7 +40,10 @@ def highlight_terms(paragraphs, query):
 def result(index):
     query = request.args.get('query', '')
     matched = []
+
     for story in story_db:
+        if 'text' not in story:
+            continue  # Skip broken story
         for para in story['text']:
             if query.lower() in para.lower():
                 matched.append(story)
@@ -52,6 +54,7 @@ def result(index):
 
     selected_story = matched[index]
     highlighted_paragraphs = highlight_terms(selected_story['text'], query)
+
     prev_index = index - 1 if index > 0 else None
     next_index = index + 1 if index < len(matched) - 1 else None
 
@@ -65,7 +68,6 @@ def result(index):
         total_results=len(matched)
     )
 
-# Admin login page
 @app.route('/admin', methods=['GET', 'POST'])
 def admin():
     if request.method == 'POST':
@@ -93,9 +95,7 @@ def admin_upload():
     if file and allowed_file(file.filename):
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
         file.save(filepath)
-        global story_db, story_matrix, vectorizer
-        story_db = load_all_stories()
-        story_db, story_matrix, vectorizer = embed_stories(story_db)
+        reload_stories()
         return "Story uploaded successfully."
     return "Invalid file", 400
 
@@ -107,9 +107,7 @@ def admin_delete():
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
     if os.path.exists(filepath):
         os.remove(filepath)
-        global story_db, story_matrix, vectorizer
-        story_db = load_all_stories()
-        story_db, story_matrix, vectorizer = embed_stories(story_db)
+        reload_stories()
         return "Story deleted successfully."
     return "File not found", 404
 
@@ -117,6 +115,11 @@ def admin_delete():
 def logout():
     session.clear()
     return redirect(url_for('index'))
+
+def reload_stories():
+    global story_db, story_matrix, vectorizer
+    story_db = load_all_stories()
+    story_db, story_matrix, vectorizer = embed_stories(story_db)
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
