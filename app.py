@@ -26,9 +26,12 @@ def index():
 @app.route('/query', methods=['GET', 'POST'])
 def query():
     if request.method == 'POST':
-        query_text = request.form.get('user_query') 
+        query_text = request.form.get('user_query')
+        if not query_text:
+            return render_template('query.html', error="Please enter a query.")
         return redirect(url_for('result', index=0, query=query_text))
     return render_template('query.html')
+
 
 def highlight_terms(paragraphs, query):
     pattern = re.compile(re.escape(query), re.IGNORECASE)
