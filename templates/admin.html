@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Dashboard</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f4f6f8; padding: 20px; }
+    h2 { text-align: center; }
+    table { width: 80%; margin: auto; border-collapse: collapse; background: white; }
+    th, td { padding: 12px 15px; border-bottom: 1px solid #ddd; text-align: left; }
+    tr:hover { background-color: #f1f1f1; }
+    a { text-decoration: none; color: red; }
+  </style>
+</head>
+<body>
+  <h2>📊 Admin Dashboard - Manage Stories</h2>
+  <table>
+    <tr><th>Story Name</th><th>Actions</th></tr>
+    {% for story in stories %}
+    <tr>
+      <td>{{ story }}</td>
+      <td><a href="/delete/{{ story }}">🗑️ Delete</a></td>
+    </tr>
+    {% endfor %}
+  </table>
+  <div style="text-align:center;margin-top:20px;">
+    <a href="/">← Back to Home</a>
+  </div>
+</body>
+</html>

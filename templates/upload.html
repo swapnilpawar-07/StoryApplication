@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Upload Story</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #eef2f5; text-align: center; padding: 40px; }
+    .box { background: white; max-width: 500px; margin: auto; padding: 30px; border-radius: 10px; box-shadow: 0 0 10px #ccc; }
+    input[type=file], button { margin-top: 20px; padding: 10px; width: 90%; }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h2>📄 Upload a .docx Story</h2>
+    <form method="POST" enctype="multipart/form-data">
+      <input type="file" name="file" accept=".docx" required><br>
+      <button type="submit">Upload & Add to Library</button>
+    </form>
+    <br>
+    <a href="/">← Back to Home</a>
+  </div>
+</body>
+</html>

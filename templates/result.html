@@ -1,0 +1,59 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Search Results</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .highlight { background-color: yellow; }
+        mark { background-color: gold; }
+        .controls { margin: 20px 0; }
+        .story-nav { margin-top: 30px; }
+        .btn { padding: 10px 15px; margin: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h2>Matched Story: {{ story_title }}</h2>
+    <div id="results">
+        {% for para in paragraphs %}
+            <p>{{ para|safe }}</p>
+        {% endfor %}
+    </div>
+
+    <div class="controls">
+        <button class="btn" onclick="copyText()">Copy Highlighted</button>
+        <button class="btn" onclick="downloadText()">Export to File</button>
+    </div>
+
+    {% if total_results > 1 %}
+    <div class="story-nav">
+        {% if prev_index is not none %}
+            <a class="btn" href="{{ url_for('result', index=prev_index, query=query) }}">Previous</a>
+        {% endif %}
+        {% if next_index is not none %}
+            <a class="btn" href="{{ url_for('result', index=next_index, query=query) }}">Next</a>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <script>
+        function copyText() {
+            const container = document.getElementById("results");
+            const text = container.innerText;
+            navigator.clipboard.writeText(text).then(() => alert("Copied!"));
+        }
+
+        function downloadText() {
+            const text = document.getElementById("results").innerText;
+            const blob = new Blob([text], { type: 'text/plain' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = "highlighted_story.txt";
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>
