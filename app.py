@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, session
-from utils import load_all_stories, extract_text_from_docx
+from utils import load_all_stories
 from query_engine import prepare_story_embeddings, retrieve_best_story, refine_user_query
 import os
 import re
@@ -15,9 +15,9 @@ ADMIN_PASSWORD = 'ttu2025'
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-# Load stories on startup
+# Load and embed stories on startup
 story_db = load_all_stories()
-story_db, story_matrix, vectorizer = embed_stories(story_db)
+story_matrix, story_db = prepare_story_embeddings(story_db)
 
 @app.route('/')
 def index():
@@ -29,7 +29,8 @@ def query():
         query_text = request.form.get('user_query')
         if not query_text:
             return render_template('query.html', error="Please enter a query.")
-        return redirect(url_for('result', index=0, query=query_text))
+        refined = refine_user_query(query_text)
+        return redirect(url_for('result', index=0, query=refined))
     return render_template('query.html')
 
 def highlight_terms(paragraphs, query):
@@ -39,33 +40,18 @@ def highlight_terms(paragraphs, query):
 @app.route('/result/<int:index>', methods=['GET'])
 def result(index):
     query = request.args.get('query', '')
-    matched = []
-
-    for story in story_db:
-        if 'text' not in story:
-            continue  # Skip broken story
-        for para in story['text']:
-            if query.lower() in para.lower():
-                matched.append(story)
-                break
-
-    if not matched:
-        return render_template('result.html', story_title="No Match", paragraphs=["No relevant story found."], total_results=0)
-
-    selected_story = matched[index]
-    highlighted_paragraphs = highlight_terms(selected_story['text'], query)
-
-    prev_index = index - 1 if index > 0 else None
-    next_index = index + 1 if index < len(matched) - 1 else None
+    best_story, _ = retrieve_best_story(query, story_matrix, story_db)
+    
+    highlighted_paragraphs = highlight_terms(best_story['text'], query)
 
     return render_template(
         'result.html',
-        story_title=selected_story['title'],
+        story_title=best_story['title'],
         paragraphs=highlighted_paragraphs,
         query=query,
-        prev_index=prev_index,
-        next_index=next_index,
-        total_results=len(matched)
+        prev_index=None,
+        next_index=None,
+        total_results=1
     )
 
 @app.route('/admin', methods=['GET', 'POST'])
@@ -117,9 +103,9 @@ def logout():
     return redirect(url_for('index'))
 
 def reload_stories():
-    global story_db, story_matrix, vectorizer
+    global story_db, story_matrix
     story_db = load_all_stories()
-    story_db, story_matrix, vectorizer = embed_stories(story_db)
+    story_matrix, story_db = prepare_story_embeddings(story_db)
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
