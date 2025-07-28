@@ -1,53 +1,53 @@
 import os
 import numpy as np
-from sklearn.metrics.pairwise import cosine_similarity
 import google.generativeai as genai
+from sklearn.metrics.pairwise import cosine_similarity
 
-# Initialize Gemini client with API key
-client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
+summarization_model = genai.GenerativeModel("gemini-1.5-flash")
+embedding_model = genai.EmbeddingModel("models/embedding-001")
 
-# Use the Gemini-1.5 model for summarization and refinement
-generation_model = client.models.get("gemini-1.5-flash")
-
-def get_summary(text):
+def summarize_story(text):
     prompt = f"Summarize this in one sentence:\n\n{text}"
     try:
-        response = generation_model.generate_content(prompt)
+        response = summarization_model.generate_content(prompt)
         return response.text.strip()
     except Exception as e:
-        print(f"[Summarization Failed] {e}")
+        print(f"Summarization failed: {e}")
         return text[:300]
 
 def get_embedding(text):
     try:
-        result = client.models.embed_content(
-            model="gemini-embedding-001",
-            contents=text,
-            task_type="retrieval_document"
+        response = embedding_model.embed_content(
+        content=text,
+        task_type="retrieval_document",
+        title="Story"
         )
-        return np.array(result.embeddings[0])
+        return np.array(response["embedding"])
     except Exception as e:
-        print(f"[Embedding Failed] {e}")
+        print(f"Embedding failed: {e}")
         return np.zeros(768)
 
-def embed_stories(stories):
+def prepare_story_embeddings(stories):
+    story_matrix = []
     for story in stories:
-        story["summary"] = get_summary(story["content"])
-        story["embedding"] = get_embedding(story["summary"])
-    return stories
+        summary = summarize_story(story["content"])
+        story["summary"] = summary
+        embedding = get_embedding(summary)
+        story_matrix.append(embedding)
+        return np.array(story_matrix), stories
 
-def refine_query(query):
+def refine_user_query(query):
     prompt = f"A user searched: '{query}'. Suggest a clearer search query to help retrieve the most relevant entrepreneurial story."
     try:
-        response = generation_model.generate_content(prompt)
+        response = summarization_model.generate_content(prompt)
         return response.text.strip()
     except Exception as e:
-        print("[Refinement Failed]", e)
+        print(f"Query refinement failed: {e}")
         return query
 
-def find_best_story(query, story_db, *_):
-    query_embedding = get_embedding(query)
-    story_embeddings = np.array([story["embedding"] for story in story_db])
-    similarities = cosine_similarity([query_embedding], story_embeddings).flatten()
-    best_index = int(np.argmax(similarities))
-    return story_db[best_index], similarities[best_index]
+def retrieve_best_story(query, story_matrix, stories):
+    query_vec = get_embedding(query).reshape(1, -1)
+    scores = cosine_similarity(query_vec, story_matrix).flatten()
+    best_idx = int(np.argmax(scores))
+    return stories[best_idx], scores[best_idx]
