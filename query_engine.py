@@ -1,11 +1,11 @@
 import os
 import google.generativeai as genai
 import numpy as np
-from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
 model = genai.GenerativeModel("gemini-1.5-flash")
+embedding_model = genai.EmbeddingModel("models/embedding-001")
 
 def get_summary(text):
     prompt = f"Summarize this in one sentence:\n\n{text}"
@@ -16,15 +16,19 @@ def get_summary(text):
         print(f"Gemini summarization failed: {e}")
         return text[:300]
 
+def get_embedding(text):
+    try:
+        response = embedding_model.embed_content(content=text, task_type="retrieval_document")
+        return np.array(response.embedding)
+    except Exception as e:
+        print(f"Embedding failed: {e}")
+        return np.zeros(768)
+
 def embed_stories(stories):
-    summaries = []
     for story in stories:
-        summary = get_summary(story["content"])
-        story["summary"] = summary
-        summaries.append(summary)
-    vectorizer = TfidfVectorizer(stop_words="english")
-    matrix = vectorizer.fit_transform(summaries)
-    return stories, matrix, vectorizer
+        story["summary"] = get_summary(story["content"])
+        story["embedding"] = get_embedding(story["summary"])
+    return stories
 
 def refine_query(query):
     prompt = f"A user searched: '{query}'. Suggest a clearer search query to help retrieve the most relevant entrepreneurial story."
@@ -35,8 +39,9 @@ def refine_query(query):
         print("Refinement failed:", e)
         return query
 
-def find_best_story(query, story_db, story_matrix, vectorizer):
-    query_vec = vectorizer.transform([query])
-    sims = cosine_similarity(query_vec, story_matrix).flatten()
+def find_best_story(query, story_db, *_):
+    query_embedding = get_embedding(query)
+    embeddings = np.array([story["embedding"] for story in story_db])
+    sims = cosine_similarity([query_embedding], embeddings).flatten()
     best_idx = int(np.argmax(sims))
     return story_db[best_idx], sims[best_idx]
