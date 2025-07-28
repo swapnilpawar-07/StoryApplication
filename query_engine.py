@@ -1,10 +1,12 @@
 import os
 import numpy as np
-import google.generativeai as genai
 from sklearn.metrics.pairwise import cosine_similarity
+import google.generativeai as genai
 
 # Configure Gemini API
 genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
+
+# Load summarization model
 summarization_model = genai.GenerativeModel("gemini-1.5-flash")
 
 def summarize_story(text):
@@ -18,15 +20,14 @@ def summarize_story(text):
 
 def get_embedding(text):
     try:
-        response = genai.get_embeddings(
-            model="models/embedding-001",
+        result = genai.embed_content(
+            model="models/embedding-001",  # This is correct in `google.generativeai`
             content=text,
-            task_type="retrieval_document",
-            title="Story"
+            task_type="retrieval_document"
         )
-        return np.array(response["embedding"])
+        return np.array(result["embedding"])  # result is a dict
     except Exception as e:
-        print(f"Embedding failed: {e}")
+        print(f"[Embedding Failed] {e}")
         return np.zeros(768)
 
 def prepare_story_embeddings(stories):
@@ -37,7 +38,7 @@ def prepare_story_embeddings(stories):
         embedding = get_embedding(summary)
         story["embedding"] = embedding
         story_matrix.append(embedding)
-    return np.array(story_matrix), stories  # ← return moved outside the loop
+    return np.array(story_matrix), stories
 
 def refine_user_query(query):
     prompt = f"A user searched: '{query}'. Suggest a clearer search query to help retrieve the most relevant entrepreneurial story."
@@ -52,4 +53,5 @@ def retrieve_best_story(query, story_matrix, stories):
     query_vec = get_embedding(query).reshape(1, -1)
     scores = cosine_similarity(query_vec, story_matrix).flatten()
     best_idx = int(np.argmax(scores))
+    print(f"[Query] {query} → Best Match: {stories[best_idx]['title']} (Score: {scores[best_idx]:.4f})")
     return stories[best_idx], scores[best_idx]
