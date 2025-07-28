@@ -1,7 +1,7 @@
 import os
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
-from google import genai
+import google.generativeai as genai
 
 # Initialize Gemini client with API key
 client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
