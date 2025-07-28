@@ -3,6 +3,7 @@ import numpy as np
 import google.generativeai as genai
 from sklearn.metrics.pairwise import cosine_similarity
 
+# Configure Gemini API
 genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
 summarization_model = genai.GenerativeModel("gemini-1.5-flash")
 
@@ -34,8 +35,9 @@ def prepare_story_embeddings(stories):
         summary = summarize_story(story["content"])
         story["summary"] = summary
         embedding = get_embedding(summary)
+        story["embedding"] = embedding
         story_matrix.append(embedding)
-        return np.array(story_matrix), stories
+    return np.array(story_matrix), stories  # ← return moved outside the loop
 
 def refine_user_query(query):
     prompt = f"A user searched: '{query}'. Suggest a clearer search query to help retrieve the most relevant entrepreneurial story."
