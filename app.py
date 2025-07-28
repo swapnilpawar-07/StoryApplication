@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, session
 from utils import load_all_stories, extract_text_from_docx
-from query_engine import embed_stories, find_best_story, refine_query
+from query_engine import prepare_story_embeddings, retrieve_best_story, refine_user_query
 import os
 import re
 
