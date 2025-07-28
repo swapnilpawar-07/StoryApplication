@@ -5,7 +5,6 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
 summarization_model = genai.GenerativeModel("gemini-1.5-flash")
-embedding_model = genai.EmbeddingModel("models/embedding-001")
 
 def summarize_story(text):
     prompt = f"Summarize this in one sentence:\n\n{text}"
@@ -18,10 +17,11 @@ def summarize_story(text):
 
 def get_embedding(text):
     try:
-        response = embedding_model.embed_content(
-        content=text,
-        task_type="retrieval_document",
-        title="Story"
+        response = genai.get_embeddings(
+            model="models/embedding-001",
+            content=text,
+            task_type="retrieval_document",
+            title="Story"
         )
         return np.array(response["embedding"])
     except Exception as e:
